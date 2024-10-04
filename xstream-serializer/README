@@ -1,1 +1,0 @@
-A serialization strategy for the memcached-session-manager that uses XStream (http://xstream.codehaus.org/).

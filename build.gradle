@@ -1,0 +1,18 @@
+plugins {
+    id 'java'
+}
+
+dependencies {
+
+    compileOnly libs.servlet
+    compileOnly libs.tomcat.catalina
+    compileOnly 'redis.clients:jedis:2.9.0'
+    compileOnly 'net.spy:spymemcached:2.12.3'
+    compileOnly 'com.couchbase.client:couchbase-client:1.4.1'
+
+}
+
+jar {
+    archiveBaseName = 'kikora-memcached-session-manager-tc'
+    archiveVersion =  '0.1.0'
+}
