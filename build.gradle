@@ -3,15 +3,59 @@ plugins {
     id 'maven-publish'
 }
 
-dependencies {
+repositories {
+        mavenCentral()
+        maven {
+            url = uri("https://maven.pkg.github.com/kikora/java-saml")
+            credentials {
+                username = (project.findProperty("gpr.user") ?: System.getenv("USERNAME")) as String
+                password = (project.findProperty("gpr.key") ?: System.getenv("TOKEN")) as String
+            }
+        }
+}
+
+dependencies{
 
     compileOnly 'jakarta.servlet:jakarta.servlet-api:5.0.0'
     compileOnly 'org.apache.tomcat:tomcat-catalina:10.1.13'
     compileOnly 'redis.clients:jedis:2.9.0'
     compileOnly 'net.spy:spymemcached:2.12.3'
     compileOnly 'com.couchbase.client:couchbase-client:1.4.1'
-
+    compileOnly 'junit:junit:4.13.2'
+    compileOnly 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testImplementation 'org.junit.vintage:junit-vintage-engine:5.10.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
 }
+
+
+
+java{
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+
+    sourceSets {
+        main {
+            java {
+                srcDirs("src")
+            }
+            resources {
+                srcDirs("src")
+            }
+            output.setResourcesDir(file("build/classes/java/main"))
+            java.destinationDirectory.set(file("build/classes/java/main"))
+        }
+        test {
+            java {
+                srcDirs("test")
+            }
+            resources {
+                srcDirs("test")
+            }
+        }
+    }
+
 
 publishing {
     repositories {

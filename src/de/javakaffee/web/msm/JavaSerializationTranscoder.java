@@ -1,53 +1,17 @@
-/*
- * Copyright 2009 Martin Grotzke
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
 package de.javakaffee.web.msm;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.NotSerializableException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.OutputStream;
-import java.io.Serializable;
+import de.javakaffee.web.msm.MemcachedSessionService.SessionManager;
+import org.apache.catalina.util.CustomObjectInputStream;
+import org.apache.juli.logging.Log;
+import org.apache.juli.logging.LogFactory;
+
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import org.apache.catalina.session.StandardSession;
-import org.apache.catalina.util.CustomObjectInputStream;
-import org.apache.juli.logging.Log;
-import org.apache.juli.logging.LogFactory;
-
-import de.javakaffee.web.msm.MemcachedSessionService.SessionManager;
-
-
-/**
- * A {@link SessionAttributesTranscoder} that serializes catalina {@link StandardSession}s using
- * java serialization (and the serialization logic of {@link StandardSession} as
- * found in {@link StandardSession#writeObjectData(ObjectOutputStream)} and
- * {@link StandardSession#readObjectData(ObjectInputStream)}).
- *
- * @author <a href="mailto:martin.grotzke@javakaffee.de">Martin Grotzke</a>
- * @version $Id$
- */
 public class JavaSerializationTranscoder implements SessionAttributesTranscoder {
 
     private static final Log LOG = LogFactory.getLog( JavaSerializationTranscoder.class );
@@ -62,12 +26,6 @@ public class JavaSerializationTranscoder implements SessionAttributesTranscoder 
 
     private final SessionManager _manager;
 
-    /**
-     * Constructor.
-     *
-     * @param manager
-     *            the manager
-     */
     public JavaSerializationTranscoder() {
         this( null );
     }
@@ -110,7 +68,7 @@ public class JavaSerializationTranscoder implements SessionAttributesTranscoder 
     }
 
     private void writeAttributes( final MemcachedBackupSession session, final Map<String, Object> attributes,
-            final ObjectOutputStream oos ) throws IOException {
+                                  final ObjectOutputStream oos ) throws IOException {
 
         // Accumulate the names of serializable and non-serializable attributes
         final String keys[] = attributes.keySet().toArray( EMPTY_ARRAY );
@@ -120,7 +78,7 @@ public class JavaSerializationTranscoder implements SessionAttributesTranscoder 
             final Object value = attributes.get( keys[i] );
             if ( value == null || session.exclude( keys[i], value ) ) {
                 continue;
-            } else if ( value instanceof Serializable ) {
+            } else if ( value instanceof Serializable) {
                 saveNames.add( keys[i] );
                 saveValues.add( value );
             } else {

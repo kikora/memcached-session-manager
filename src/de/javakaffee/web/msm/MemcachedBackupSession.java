@@ -1,26 +1,8 @@
-/*
- * Copyright 2009 Martin Grotzke
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
 package de.javakaffee.web.msm;
 
 import de.javakaffee.web.msm.MemcachedSessionService.LockStatus;
 import de.javakaffee.web.msm.MemcachedSessionService.SessionManager;
-import org.apache.catalina.Manager;
 import org.apache.catalina.SessionListener;
-import org.apache.catalina.authenticator.Constants;
 import org.apache.catalina.session.StandardSession;
 
 import java.lang.reflect.Field;
@@ -35,22 +17,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.regex.Pattern;
 
+import static de.javakaffee.web.msm.TranscoderService.LEGACY_PRINCIPAL_NOTE;
 import static java.lang.Math.max;
 
-/**
- * The session class used by the {@link MemcachedSessionService}.
- * <p>
- * This class is needed to e.g.
- * <ul>
- * <li>be able to change the session id without the whole notification lifecycle (which includes the
- * application also).</li>
- * <li>provide access to internal fields of the session, for serialization/deserialization</li>
- * <li>be able to coordinate backup and expirationUpdate</li>
- * </ul>
- * </p>
- *
- * @author <a href="mailto:martin.grotzke@javakaffee.de">Martin Grotzke</a>
- */
 public class MemcachedBackupSession extends StandardSession {
 
     private static final long serialVersionUID = 1L;
@@ -66,34 +35,34 @@ public class MemcachedBackupSession extends StandardSession {
             final Field attributesField = StandardSession.class.getDeclaredField("attributes");
             attributeAccessor = attributesField.getType() != ConcurrentMap.class
                     ? new AttributeAccessor() {
-                        { attributesField.setAccessible(true); }
-                        @Override
-                        public ConcurrentMap<String, Object> get(MemcachedBackupSession session) {
-                            try {
-                                return (ConcurrentMap<String, Object>)attributesField.get(session);
-                            } catch (IllegalAccessException e) {
-                                throw new RuntimeException(e);
-                            }
-                        }
-                        @Override
-                        public void set(MemcachedBackupSession session, ConcurrentMap<String, Object> attributes) {
-                            try {
-                                attributesField.set(session, attributes);
-                            } catch (IllegalAccessException e) {
-                                throw new RuntimeException(e);
-                            }
-                        }
+                { attributesField.setAccessible(true); }
+                @Override
+                public ConcurrentMap<String, Object> get(MemcachedBackupSession session) {
+                    try {
+                        return (ConcurrentMap<String, Object>)attributesField.get(session);
+                    } catch (IllegalAccessException e) {
+                        throw new RuntimeException(e);
                     }
+                }
+                @Override
+                public void set(MemcachedBackupSession session, ConcurrentMap<String, Object> attributes) {
+                    try {
+                        attributesField.set(session, attributes);
+                    } catch (IllegalAccessException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
                     : new AttributeAccessor() {
-                        @Override
-                        public ConcurrentMap<String, Object> get(MemcachedBackupSession session) {
-                            return session.attributes;
-                        }
-                        @Override
-                        public void set(MemcachedBackupSession session, ConcurrentMap<String, Object> attributes) {
-                            session.attributes = attributes;
-                        }
-                    };
+                @Override
+                public ConcurrentMap<String, Object> get(MemcachedBackupSession session) {
+                    return session.attributes;
+                }
+                @Override
+                public void set(MemcachedBackupSession session, ConcurrentMap<String, Object> attributes) {
+                    session.attributes = attributes;
+                }
+            };
         } catch (NoSuchFieldException e) {
             throw new RuntimeException(e);
         }
@@ -163,22 +132,14 @@ public class MemcachedBackupSession extends StandardSession {
 
     private transient boolean _authenticationChanged;
 
-    @edu.umd.cs.findbugs.annotations.SuppressWarnings( "SE_TRANSIENT_FIELD_NOT_RESTORED" )
     private transient boolean _attributesAccessed;
 
     private transient boolean _sessionIdChanged;
     protected transient boolean _sticky;
     private transient volatile LockStatus _lockStatus;
 
-    @edu.umd.cs.findbugs.annotations.SuppressWarnings( "SE_TRANSIENT_FIELD_NOT_RESTORED" )
     private transient final Set<Long> _refCount;
 
-    /**
-     * Creates a new instance without a given manager. This has to be
-     * assigned via {@link #setManager(Manager)} before this session is
-     * used.
-     *
-     */
     public MemcachedBackupSession() {
         this(null);
     }
@@ -646,7 +607,7 @@ public class MemcachedBackupSession extends StandardSession {
      * @return <code>true</code> if authentication details have changed.
      */
     boolean authenticationChanged() {
-        return _authenticationChanged || getNote(Constants.FORM_PRINCIPAL_NOTE) != null;
+        return _authenticationChanged || getNote(LEGACY_PRINCIPAL_NOTE) != null;
     }
 
     /**

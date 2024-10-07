@@ -1,40 +1,14 @@
-/*
- * Copyright 2009 Martin Grotzke
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
 package de.javakaffee.web.msm;
 
-import java.io.IOException;
-
-import javax.annotation.Nonnull;
-import javax.servlet.ServletException;
-
+import jakarta.servlet.ServletException;
 import org.apache.catalina.connector.Request;
 import org.apache.catalina.connector.Response;
 import org.apache.catalina.valves.ValveBase;
 import org.apache.juli.logging.Log;
 import org.apache.juli.logging.LogFactory;
 
-/**
- * This valve is used for tracking that a request was actually processed
- * (after e.g. authentication was passed) and detects if sessionId must
- * be changed (due to tomcat/memcached failover).
- *
- * @author <a href="mailto:martin.grotzke@javakaffee.de">Martin Grotzke</a>
- * @version $Id$
- */
+import java.io.IOException;
+
 public class RequestTrackingContextValve extends ValveBase {
 
     static final String INVOKED = "de.javakaffee.msm.contextValve.invoked";
@@ -45,20 +19,8 @@ public class RequestTrackingContextValve extends ValveBase {
     private final MemcachedSessionService _sessionBackupService;
     protected final String _sessionCookieName;
 
-    /**
-     * Creates a new instance with the given ignore pattern and
-     * {@link MemcachedSessionService}.
-     * @param sessionBackupService
-     *            the service that actually backups sessions
-     * @param ignorePattern
-     *            the regular expression for request uris to ignore
-     * @param context
-     *            the catalina context of this valve
-     * @param statistics
-     *            used to store statistics
-     */
-    public RequestTrackingContextValve( @Nonnull final String sessionCookieName,
-            @Nonnull final MemcachedSessionService sessionBackupService ) {
+    public RequestTrackingContextValve(  final String sessionCookieName,
+                                         final MemcachedSessionService sessionBackupService ) {
         _sessionBackupService = sessionBackupService;
         _sessionCookieName = sessionCookieName;
     }
@@ -123,8 +85,8 @@ public class RequestTrackingContextValve extends ValveBase {
          */
         if ( request.getRequestedSessionId() != null ) {
 
-        	String newSessionId = _sessionBackupService.changeSessionIdOnTomcatFailover( request.getRequestedSessionId() );
-        	if ( newSessionId == null ) {
+            String newSessionId = _sessionBackupService.changeSessionIdOnTomcatFailover( request.getRequestedSessionId() );
+            if ( newSessionId == null ) {
                 newSessionId = _sessionBackupService.changeSessionIdOnMemcachedFailover( request.getRequestedSessionId() );
             }
 

@@ -1,45 +1,11 @@
-/*
- * Copyright 2009 Martin Grotzke
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
 package de.javakaffee.web.msm;
-
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
-import javax.annotation.Nonnull;
 
 import org.apache.juli.logging.Log;
 import org.apache.juli.logging.LogFactory;
 
-import edu.umd.cs.findbugs.annotations.CheckForNull;
-import edu.umd.cs.findbugs.annotations.SuppressWarnings;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * An LRUCache that supports a maximum number of cache entries and a time to
- * live for them. The TTL is measured from insertion time to access time.
- *
- * @author <a href="mailto:martin.grotzke@javakaffee.de">Martin Grotzke</a>
- * @version $Id$
- * @param <K>
- *            the type of the key
- */
 public class NodeAvailabilityCache<K> {
 
     private static final Log LOG = LogFactory.getLog( NodeAvailabilityCache.class );
@@ -88,7 +54,6 @@ public class NodeAvailabilityCache<K> {
      * @return the previous value associated with the specified key, or null if
      *         there was no mapping for the key
      */
-    @CheckForNull
     @SuppressWarnings( "NP_BOOLEAN_RETURN_NULL" )
     public Boolean setNodeAvailable( final K key, final boolean available ) {
         final ManagedItem<Boolean> item = _map.get( key );
@@ -97,8 +62,8 @@ public class NodeAvailabilityCache<K> {
             final ManagedItem<Boolean> previous =
                     _map.put( key, new ManagedItem<Boolean>( availableObj, System.currentTimeMillis() ) );
             return previous != null
-                ? previous._value
-                : null;
+                    ? previous._value
+                    : null;
         } else {
             return item._value;
         }
@@ -112,7 +77,7 @@ public class NodeAvailabilityCache<K> {
      *            the key to check
      * @return <code>true</code> if the node is marked as available.
      */
-    public boolean isNodeAvailable( @Nonnull final K key ) {
+    public boolean isNodeAvailable( final K key ) {
         final ManagedItem<Boolean> item = _map.get( key );
         if ( item == null ) {
             return updateIsNodeAvailable( key );

@@ -1,26 +1,19 @@
-/*
- * Copyright 2009 Martin Grotzke
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
 package de.javakaffee.web.msm;
 
-import static de.javakaffee.web.msm.Configurations.MAX_RECONNECT_DELAY_KEY;
-import static de.javakaffee.web.msm.Configurations.getSystemProperty;
-import static de.javakaffee.web.msm.Statistics.StatsType.DELETE_FROM_MEMCACHED;
-import static de.javakaffee.web.msm.Statistics.StatsType.LOAD_FROM_MEMCACHED;
-import static de.javakaffee.web.msm.Statistics.StatsType.SESSION_DESERIALIZATION;
+import de.javakaffee.web.msm.BackupSessionService.SimpleFuture;
+import de.javakaffee.web.msm.BackupSessionTask.BackupResult;
+import de.javakaffee.web.msm.LockingStrategy.LockingMode;
+import de.javakaffee.web.msm.MemcachedNodesManager.StorageClientCallback;
+import de.javakaffee.web.msm.storage.StorageClient;
+import org.apache.catalina.Context;
+import org.apache.catalina.LifecycleException;
+import org.apache.catalina.Manager;
+import org.apache.catalina.Session;
+import org.apache.catalina.connector.Request;
+import org.apache.catalina.connector.Response;
+import org.apache.catalina.session.StandardSession;
+import org.apache.juli.logging.Log;
+import org.apache.juli.logging.LogFactory;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -32,38 +25,10 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import static de.javakaffee.web.msm.Configurations.MAX_RECONNECT_DELAY_KEY;
+import static de.javakaffee.web.msm.Configurations.getSystemProperty;
+import static de.javakaffee.web.msm.Statistics.StatsType.*;
 
-import org.apache.catalina.Context;
-import org.apache.catalina.LifecycleException;
-import org.apache.catalina.Manager;
-import org.apache.catalina.Session;
-import org.apache.catalina.connector.Request;
-import org.apache.catalina.connector.Response;
-import org.apache.catalina.session.StandardSession;
-import org.apache.juli.logging.Log;
-import org.apache.juli.logging.LogFactory;
-
-import de.javakaffee.web.msm.BackupSessionService.SimpleFuture;
-import de.javakaffee.web.msm.BackupSessionTask.BackupResult;
-import de.javakaffee.web.msm.LockingStrategy.LockingMode;
-import de.javakaffee.web.msm.MemcachedNodesManager.StorageClientCallback;
-import de.javakaffee.web.msm.storage.StorageClient;
-
-/**
- * This is the core of memcached session manager, managing sessions in memcached.
- * A {@link SessionManager} interface represents the dependency to tomcats session manager
- * (which normally keeps sessions in memory). This {@link SessionManager} has to be subclassed
- * for a concrete major tomcat version (e.g. for 7.x.x) and configured in the context.xml
- * as manager (see <a href="http://code.google.com/p/memcached-session-manager/wiki/SetupAndConfiguration">SetupAndConfiguration</a>)
- * for more. The {@link SessionManager} then has to pass configuration settings to this
- * {@link MemcachedSessionService}. Relevant lifecycle methods are {@link #startInternal()}
- * and {@link #shutdown()}.
- *
- * @author <a href="mailto:martin.grotzke@javakaffee.de">Martin Grotzke</a>
- */
 public class MemcachedSessionService {
 
     static enum LockStatus {
@@ -128,17 +93,6 @@ public class MemcachedSessionService {
      */
     private Pattern _sessionAttributePattern = null;
 
-    /**
-     * Specifies if the session shall be stored asynchronously in memcached as
-     * {@link StorageClient#set(String, int, byte[])} supports it. If this is
-     * false, the timeout set via {@link #setSessionBackupTimeout(int)} is
-     * evaluated. If this is <code>true</code>, the {@link #setBackupThreadCount(int)}
-     * is evaluated.
-     * <p>
-     * By default this property is set to <code>true</code> - the session
-     * backup is performed asynchronously.
-     * </p>
-     */
     private boolean _sessionBackupAsync = true;
 
     /**
@@ -215,7 +169,7 @@ public class MemcachedSessionService {
      */
     private final LRUCache<String, Boolean> _invalidSessionsCache = new LRUCache<String, Boolean>( 2000, 500 );
 
-	private MemcachedNodesManager _memcachedNodesManager;
+    private MemcachedNodesManager _memcachedNodesManager;
 
     //private LRUCache<String, String> _relocatedSessions;
 
@@ -236,7 +190,7 @@ public class MemcachedSessionService {
     private RequestTrackingContextValve _trackingContextValve;
 
     protected final SessionManager _manager;
-	private final StorageClientCallback _storageClientCallback = createStorageClientCallback();
+    private final StorageClientCallback _storageClientCallback = createStorageClientCallback();
 
     public MemcachedSessionService( final SessionManager manager ) {
         _manager = manager;
@@ -246,7 +200,6 @@ public class MemcachedSessionService {
      * Returns the tomcat session manager.
      * @return the session manager
      */
-    @Nonnull
     public SessionManager getManager() {
         return _manager;
     }
@@ -257,7 +210,6 @@ public class MemcachedSessionService {
          * Must return the configured session cookie name.
          * @return the session cookie name.
          */
-        @Nonnull
         String getSessionCookieName();
 
         /**
@@ -273,12 +225,12 @@ public class MemcachedSessionService {
         String getJvmRoute();
 
         /**
-          * Get a string from the underlying resource bundle or return
-          * null if the String is not found.
-          * @param key to desired resource String
-          * @return resource String matching <i>key</i> from underlying
-          *         bundle or null if not found.
-          * @throws IllegalArgumentException if <i>key</i> is null.
+         * Get a string from the underlying resource bundle or return
+         * null if the String is not found.
+         * @param key to desired resource String
+         * @return resource String matching <i>key</i> from underlying
+         *         bundle or null if not found.
+         * @throws IllegalArgumentException if <i>key</i> is null.
          */
         String getString(String key);
 
@@ -318,19 +270,17 @@ public class MemcachedSessionService {
          */
         boolean isInitialized();
 
-        @Nonnull
         MemcachedSessionService getMemcachedSessionService();
 
         /**
          * Return the Context with which this Manager is associated.
+         * @return
          */
-        @Nonnull
         Context getContext();
 
         /**
          * Return the Context with which this Manager is associated.
          */
-        @Nonnull
         ClassLoader getContainerClassLoader();
 
         /**
@@ -339,7 +289,7 @@ public class MemcachedSessionService {
          * @param oos the output stream
          * @throws IOException expected to be declared by the implementation.
          */
-        void writePrincipal( @Nonnull Principal principal, @Nonnull ObjectOutputStream oos) throws IOException;
+        void writePrincipal(Principal principal,  ObjectOutputStream oos) throws IOException;
 
         /**
          * Reads the Principal from the given OIS.
@@ -348,8 +298,7 @@ public class MemcachedSessionService {
          * @throws ClassNotFoundException expected to be declared by the implementation.
          * @throws IOException expected to be declared by the implementation.
          */
-        @Nonnull
-        Principal readPrincipal( @Nonnull ObjectInputStream ois ) throws ClassNotFoundException, IOException;
+        Principal readPrincipal(ObjectInputStream ois ) throws ClassNotFoundException, IOException;
 
         /**
          * Determines if the context has a security contraint with form based login.
@@ -370,10 +319,10 @@ public class MemcachedSessionService {
          * @param processExpiresFrequency the new manager checks frequency
          */
         void setProcessExpiresFrequency( int processExpiresFrequency );
-        void setMemcachedNodes( @Nonnull String memcachedNodes );
+        void setMemcachedNodes( String memcachedNodes );
         void setFailoverNodes( String failoverNodes );
-        void setLockingMode( @Nullable final String lockingMode );
-        void setLockingMode( @Nullable final LockingMode lockingMode, @Nullable final Pattern uriPattern, final boolean storeSecondaryBackup );
+        void setLockingMode( final String lockingMode );
+        void setLockingMode(final LockingMode lockingMode, final Pattern uriPattern, final boolean storeSecondaryBackup );
         void setUsername(String username);
         void setPassword(String password);
 
@@ -381,7 +330,7 @@ public class MemcachedSessionService {
          * Creates a new instance of {@link MemcachedBackupSession} (needed so that it's possible to
          * create specialized {@link MemcachedBackupSession} instances).
          */
-        @Nonnull
+
         MemcachedBackupSession newMemcachedBackupSession();
 
         /**
@@ -421,7 +370,7 @@ public class MemcachedSessionService {
             _storage = null;
         else
             _storage = storage;
-        
+
         startInternal();
     }
 
@@ -479,21 +428,21 @@ public class MemcachedSessionService {
         };
     }
 
-	protected StorageClientCallback createStorageClientCallback() {
-		return new StorageClientCallback() {
-			@Override
-			public byte[] get(final String key) {
-				return _storage.get(_memcachedNodesManager.getStorageKeyFormat().format( key ));
-			}
-		};
-	}
+    protected StorageClientCallback createStorageClientCallback() {
+        return new StorageClientCallback() {
+            @Override
+            public byte[] get(final String key) {
+                return _storage.get(_memcachedNodesManager.getStorageKeyFormat().format( key ));
+            }
+        };
+    }
 
     protected MemcachedNodesManager createMemcachedNodesManager(final String memcachedNodes, final String failoverNodes) {
         final Context context = _manager.getContext();
         final String webappVersion = Reflections.invoke(context, "getWebappVersion", null);
         final StorageKeyFormat storageKeyFormat = StorageKeyFormat.of(_storageKeyPrefix, context.getParent().getName(), context.getName(), webappVersion);
-		return MemcachedNodesManager.createFor( memcachedNodes, failoverNodes, storageKeyFormat, _storageClientCallback);
-	}
+        return MemcachedNodesManager.createFor( memcachedNodes, failoverNodes, storageKeyFormat, _storageClientCallback);
+    }
 
     private TranscoderService createTranscoderService( final Statistics statistics ) {
         return new TranscoderService( getTranscoderFactory().createTranscoder( _manager ) );
@@ -511,7 +460,7 @@ public class MemcachedSessionService {
     }
 
     protected StorageClient createStorageClient(final MemcachedNodesManager memcachedNodesManager,
-												final Statistics statistics ) {
+                                                final Statistics statistics ) {
         if ( ! _enabled.get() ) {
             return null;
         }
@@ -549,7 +498,7 @@ public class MemcachedSessionService {
     /**
      * {@inheritDoc}
      */
-    public String newSessionId( @Nonnull final String sessionId ) {
+    public String newSessionId(  final String sessionId ) {
         return _memcachedNodesManager.createSessionId( sessionId );
     }
 
@@ -593,7 +542,7 @@ public class MemcachedSessionService {
             // in this case we must return the session because valid requests would be rejected otherwise.
             if(!_sticky && (
                     isConnectorSessionLookup()
-                    || _trackingHostValve.isIgnoredRequest() && !_manager.contextHasFormBasedSecurityConstraint())) {
+                            || _trackingHostValve.isIgnoredRequest() && !_manager.contextHasFormBasedSecurityConstraint())) {
                 if(_log.isDebugEnabled()) {
                     _log.debug("Returning for session id " + id + " (isConnectorSessionLookup: "+ isConnectorSessionLookup() +
                             ", isIgnoredRequest: " + _trackingHostValve.isIgnoredRequest() + ")");
@@ -654,13 +603,13 @@ public class MemcachedSessionService {
         // See also http://code.google.com/p/memcached-session-manager/issues/detail?id=92
         String jvmRoute;
         final boolean sessionIdWillBeChanged = _sticky && ( jvmRoute = _manager.getJvmRoute() ) != null
-            && !jvmRoute.equals( getSessionIdFormat().extractJvmRoute( result.getId() ) );
+                && !jvmRoute.equals( getSessionIdFormat().extractJvmRoute( result.getId() ) );
 
         final boolean activate = !sessionIdWillBeChanged;
         addValidLoadedSession( result, activate );
     }
 
-    private void addValidLoadedSession( final StandardSession session, final boolean activate ) {
+    private void addValidLoadedSession(final StandardSession session, final boolean activate ) {
         // make sure the listeners know about it. (as done by PersistentManagerBase)
         if ( session.isNew() ) {
             session.tellNew();
@@ -723,7 +672,7 @@ public class MemcachedSessionService {
             if ( _log.isDebugEnabled() ) {
                 _log.debug( "Remove session id  " + session.getId() + "  from _invalidSessionsCache, marking new session valid" );
             }
-            _invalidSessionsCache.remove(session.getId());            
+            _invalidSessionsCache.remove(session.getId());
         }
         return session;
 
@@ -754,7 +703,7 @@ public class MemcachedSessionService {
         if ( _manager.getMaxActiveSessions() >= 0 && _manager.getSessionsInternal().size() >= _manager.getMaxActiveSessions() ) {
             _manager.incrementRejectedSessions();
             throw new IllegalStateException
-                (_manager.getString("standardManager.createSession.ise"));
+                    (_manager.getString("standardManager.createSession.ise"));
         }
     }
 
@@ -817,10 +766,9 @@ public class MemcachedSessionService {
         return null;
     }
 
-    @Nonnull
-	private SessionIdFormat getSessionIdFormat() {
-		return _memcachedNodesManager.getSessionIdFormat();
-	}
+    private SessionIdFormat getSessionIdFormat() {
+        return _memcachedNodesManager.getSessionIdFormat();
+    }
 
     private String handleSessionTakeOver( final MemcachedBackupSession session ) {
 
@@ -869,25 +817,11 @@ public class MemcachedSessionService {
         }
     }
 
-    /**
-     * Check if the valid session associated with the provided
-     * requested session Id will be relocated with the next {@link #backupSession(Session, boolean)}
-     * and change the session id to the new one (containing the new memcached node). The
-     * new session id must be returned if the session will be relocated and the id was changed.
-     *
-     * @param requestedSessionId
-     *            the sessionId that was requested.
-     *
-     * @return the new session id if the session will be relocated and the id was changed.
-     *          Otherwise <code>null</code>.
-     *
-     * @see Request#getRequestedSessionId()
-     */
     public String changeSessionIdOnMemcachedFailover( final String requestedSessionId ) {
 
-    	if ( !_memcachedNodesManager.isEncodeNodeIdInSessionId() ) {
-    		return null;
-    	}
+        if ( !_memcachedNodesManager.isEncodeNodeIdInSessionId() ) {
+            return null;
+        }
 
         try {
             if ( _sticky ) {
@@ -898,7 +832,7 @@ public class MemcachedSessionService {
                 final MemcachedBackupSession session = _manager.getSessionInternal( requestedSessionId );
 
                 if ( session != null && session.isValid() ) {
-                	final String newSessionId = _memcachedNodesManager.getNewSessionIdIfNodeFromSessionIdUnavailable( session.getId() );
+                    final String newSessionId = _memcachedNodesManager.getNewSessionIdIfNodeFromSessionIdUnavailable( session.getId() );
                     if ( newSessionId != null ) {
                         _log.debug( "Session needs to be relocated, setting new id on session..." );
                         session.setIdForRelocate( newSessionId );
@@ -931,8 +865,7 @@ public class MemcachedSessionService {
         return null;
     }
 
-    @CheckForNull
-    private MemcachedBackupSession loadBackupSession( @Nonnull final String requestedSessionId ) {
+    private MemcachedBackupSession loadBackupSession(  final String requestedSessionId ) {
 
         final String nodeId = getSessionIdFormat().extractMemcachedId( requestedSessionId );
         if ( nodeId == null ) {
@@ -988,7 +921,7 @@ public class MemcachedSessionService {
             session.setThisAccessedTimeInternal( validityInfo.getThisAccessedTime() );
             final String newSessionId = getSessionIdFormat().createNewSessionId( requestedSessionId, newNodeId );
             _log.info( "Session backup loaded from secondary memcached for "+ requestedSessionId +" (will be relocated)," +
-            		" setting new id "+ newSessionId +" on session..." );
+                    " setting new id "+ newSessionId +" on session..." );
             session.setIdInternal( newSessionId );
             return session;
 
@@ -1041,21 +974,8 @@ public class MemcachedSessionService {
         }
     }
 
-    /**
-     * Backup the session for the provided session id in memcached if the session was modified or
-     * if the session needs to be relocated. In non-sticky session-mode the session should not be
-     * loaded from memcached for just storing it again but only metadata should be updated.
-     *
-     * @param sessionId
-     *            the if of the session to backup
-     * @param sessionIdChanged
-     *            specifies, if the session id was changed due to a memcached failover or tomcat failover.
-     * @param requestId
-     *            the uri of the request for that the session backup shall be performed.
-     *
-     * @return a {@link Future} providing the {@link BackupResultStatus}.
-     */
-    public Future<BackupResult> backupSession( final String sessionId, final boolean sessionIdChanged, final String requestId ) {
+
+    public Future<BackupResult> backupSession(final String sessionId, final boolean sessionIdChanged, final String requestId ) {
         if ( !_enabled.get() ) {
             return new SimpleFuture<BackupResult>( BackupResult.SKIPPED );
         }
@@ -1104,8 +1024,7 @@ public class MemcachedSessionService {
         return result;
     }
 
-    @Nonnull
-    byte[] serialize( @Nonnull final MemcachedBackupSession session ) {
+    byte[] serialize( final MemcachedBackupSession session ) {
         return _transcoderService.serialize( session );
     }
 
@@ -1120,7 +1039,7 @@ public class MemcachedSessionService {
      * Checks if this manager {@link #isEnabled()}, if the given sessionId is valid (contains a memcached id)
      * and if this sessionId can access memcached.
      */
-    private boolean canHitMemcached( @Nonnull final String sessionId ) {
+    private boolean canHitMemcached(  final String sessionId ) {
         return _enabled.get() && _memcachedNodesManager.canHitMemcached( sessionId );
     }
 
@@ -1228,7 +1147,7 @@ public class MemcachedSessionService {
     public String getMemcachedNodes() {
         return _memcachedNodes;
     }
-    
+
     private MemcachedNodesManager reloadMemcachedConfig( final String memcachedNodes, final String failoverNodes ) {
 
         /* first create all dependent services
@@ -1311,7 +1230,6 @@ public class MemcachedSessionService {
      *
      * @return the sessionAttributePattern
      */
-    @CheckForNull
     Pattern getSessionAttributePattern() {
         return _sessionAttributePattern;
     }
@@ -1321,7 +1239,6 @@ public class MemcachedSessionService {
      *
      * @return the sessionAttributeFilter
      */
-    @CheckForNull
     public String getSessionAttributeFilter() {
         return _sessionAttributeFilter;
     }
@@ -1336,7 +1253,7 @@ public class MemcachedSessionService {
      * @param sessionAttributeFilter
      *            the sessionAttributeNames to set
      */
-    public void setSessionAttributeFilter( @Nullable final String sessionAttributeFilter ) {
+    public void setSessionAttributeFilter(  final String sessionAttributeFilter ) {
         if ( sessionAttributeFilter == null || sessionAttributeFilter.trim().equals("") ) {
             _sessionAttributeFilter = null;
             _sessionAttributePattern = null;
@@ -1437,7 +1354,7 @@ public class MemcachedSessionService {
         _enableStatistics = enableStatistics;
         if ( oldEnableStatistics != enableStatistics && _manager.isInitialized() ) {
             _log.info( "Changed enableStatistics from " + oldEnableStatistics + " to " + enableStatistics + "." +
-            " Reloading configuration..." );
+                    " Reloading configuration..." );
             reloadMemcachedConfig( _memcachedNodes, _failoverNodes );
         }
     }
@@ -1515,7 +1432,7 @@ public class MemcachedSessionService {
         }
         if ( !sticky && _manager.getJvmRoute() != null ) {
             _log.warn( "Setting sticky to false while there's still a jvmRoute configured (" + _manager.getJvmRoute() + "), this might cause trouble." +
-            		" You should remve the jvmRoute configuration for non-sticky mode." );
+                    " You should remve the jvmRoute configuration for non-sticky mode." );
         }
         _sticky = sticky;
         if ( _manager.isInitialized() ) {
@@ -1543,7 +1460,7 @@ public class MemcachedSessionService {
      * the provided regular expression.</li>
      * </ul>
      */
-    public void setLockingMode( @Nullable final String lockingMode ) {
+    public void setLockingMode(  final String lockingMode ) {
         if ( lockingMode == null && _lockingMode == null
                 || lockingMode != null && lockingMode.equals( _lockingMode ) ) {
             return;
@@ -1554,7 +1471,7 @@ public class MemcachedSessionService {
         }
     }
 
-	private void initNonStickyLockingMode( @Nonnull final MemcachedNodesManager config ) {
+    private void initNonStickyLockingMode(  final MemcachedNodesManager config ) {
         if ( _sticky ) {
             setLockingMode( null, null, false );
             return;
@@ -1583,7 +1500,7 @@ public class MemcachedSessionService {
         setLockingMode( lockingMode, uriPattern, storeSecondaryBackup );
     }
 
-    public void setLockingMode( @Nullable final LockingMode lockingMode, @Nullable final Pattern uriPattern, final boolean storeSecondaryBackup ) {
+    public void setLockingMode(  final LockingMode lockingMode,  final Pattern uriPattern, final boolean storeSecondaryBackup ) {
         _log.info( "Setting lockingMode to " + lockingMode + ( uriPattern != null ? " with pattern " + uriPattern.pattern() : "" ) );
         _lockingStrategy = LockingStrategy.create( lockingMode, uriPattern, _storage, this, _memcachedNodesManager,
                 _invalidSessionsCache, storeSecondaryBackup, _statistics, _currentRequest );
@@ -1672,10 +1589,6 @@ public class MemcachedSessionService {
         _sessionBackupTimeout = sessionBackupTimeout;
     }
 
-    /**
-     * The timeout in milliseconds after that a session backup is considered as
-     * beeing failed when {@link #getSessionBackupAsync()}) is <code>false</code>.
-     */
     public long getSessionBackupTimeout() {
         return _sessionBackupTimeout;
     }
@@ -1684,9 +1597,9 @@ public class MemcachedSessionService {
         return _statistics;
     }
 
-	public long getOperationTimeout() {
-		return _operationTimeout;
-	}
+    public long getOperationTimeout() {
+        return _operationTimeout;
+    }
 
     /**
      * This LockExpiration(seconds) avoid duplicated processing.
@@ -1705,9 +1618,9 @@ public class MemcachedSessionService {
         return _lockExpiration;
     }
 
-	public void setOperationTimeout(final long operationTimeout ) {
-		_operationTimeout = operationTimeout;
-	}
+    public void setOperationTimeout(final long operationTimeout ) {
+        _operationTimeout = operationTimeout;
+    }
 
     public void setLockExpiration(final int lockExpiration) {
         _lockExpiration = lockExpiration;
@@ -1729,7 +1642,6 @@ public class MemcachedSessionService {
     /**
      * Return the memcached nodes manager.
      */
-    @Nonnull
     MemcachedNodesManager getMemcachedNodesManager() {
         return _memcachedNodesManager;
     }
@@ -1770,7 +1682,6 @@ public class MemcachedSessionService {
     /**
      * The currently set locking strategy.
      */
-    @Nullable
     LockingStrategy getLockingStrategy() {
         return _lockingStrategy;
     }
@@ -1788,7 +1699,7 @@ public class MemcachedSessionService {
     }
 
     public void setPassword(final String password) {
-       _password = password;
+        _password = password;
     }
 
     /**

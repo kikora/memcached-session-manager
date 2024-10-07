@@ -1,19 +1,3 @@
-/*
- * Copyright 2010 Martin Grotzke
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
 package de.javakaffee.web.msm;
 
 import java.util.Map;
@@ -21,11 +5,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import javax.annotation.Nonnull;
-
-/**
- * @author <a href="mailto:martin.grotzke@javakaffee.de">Martin Grotzke</a>
- */
 public class Statistics {
 
     private final AtomicLong _numRequestsWithoutSession = new AtomicLong();
@@ -42,7 +21,7 @@ public class Statistics {
     private final Map<StatsType, MinMaxAvgProbe> _probes;
 
     private Statistics() {
-        _probes = new ConcurrentHashMap<Statistics.StatsType, Statistics.MinMaxAvgProbe>();
+        _probes = new ConcurrentHashMap<StatsType, MinMaxAvgProbe>();
         for( final StatsType item : StatsType.values() ) {
             _probes.put( item, new MinMaxAvgProbe() );
         }
@@ -67,14 +46,7 @@ public class Statistics {
         return enabled ? new Statistics() : DISABLED_STATS;
     }
 
-    /**
-     * A utility method that calculates the difference of the time
-     * between the given <code>startInMillis</code> and {@link System#currentTimeMillis()}
-     * and registers the difference via {@link #register(long)} for the probe of the given {@link StatsType}.
-     * @param statsType the specific execution type that is measured.
-     * @param startInMillis the time in millis that shall be subtracted from {@link System#currentTimeMillis()}.
-     */
-    public void registerSince( @Nonnull final StatsType statsType, final long startInMillis ) {
+    public void registerSince( final StatsType statsType, final long startInMillis ) {
         register( statsType, System.currentTimeMillis() - startInMillis );
     }
 
@@ -83,12 +55,11 @@ public class Statistics {
      * @param statsType the specific execution type that is measured.
      * @param value the value to register.
      */
-    public void register( @Nonnull final StatsType statsType, final long value ) {
+    public void register( final StatsType statsType, final long value ) {
         _probes.get( statsType ).register( value );
     }
 
-    @Nonnull
-    public MinMaxAvgProbe getProbe( @Nonnull final StatsType statsType ) {
+    public MinMaxAvgProbe getProbe( final StatsType statsType ) {
         return _probes.get( statsType );
     }
 
@@ -157,15 +128,6 @@ public class Statistics {
 
     public static enum StatsType {
 
-        /**
-         * Provides info regarding the effective time that was required for session
-         * backup in the request thread and it's measured for every request with a session,
-         * even if the session id has not set memcached id (this is the time that was effectively
-         * required as part of the client request). It should differ from {@link #getBackupProbe()}
-         * if async session backup shall be done.
-         *
-         * @see BackupSessionService#backupSession(MemcachedBackupSession, boolean)
-         */
         EFFECTIVE_BACKUP,
 
         /**
@@ -303,7 +265,7 @@ public class Statistics {
         @Override
         public void register(final StatsType statsType, final long startInMillis) {};
 
-        public MinMaxAvgProbe getProbe( @Nonnull final StatsType statsType ) {
+        public MinMaxAvgProbe getProbe( final StatsType statsType ) {
             return new MinMaxAvgProbe();
         }
 

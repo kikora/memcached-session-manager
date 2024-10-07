@@ -1,41 +1,8 @@
-/*
- * Copyright 2009 Martin Grotzke
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
 package de.javakaffee.web.msm;
 
-import java.util.AbstractList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.RandomAccess;
 
-/**
- * An LRUCache that supports a maximum number of cache entries and a time to
- * live for them. The TTL is measured from insertion time to access time.
- *
- * @author <a href="mailto:martin.grotzke@javakaffee.de">Martin Grotzke</a>
- * @version $Id$
- * @param <K>
- *            the type of the key
- * @param <V>
- *            the type of the value
- */
 public class LRUCache<K, V> {
 
     private final int _size;
@@ -93,8 +60,8 @@ public class LRUCache<K, V> {
                 _map.remove( _map.keySet().iterator().next() );
             }
             return previous != null
-                ? previous._value
-                : null;
+                    ? previous._value
+                    : null;
         }
     }
 

@@ -1,62 +1,24 @@
-/*
- * Copyright 2010 Martin Grotzke
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
 package de.javakaffee.web.msm;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.OutputStream;
-import java.io.UnsupportedEncodingException;
-import java.security.Principal;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.concurrent.ConcurrentMap;
-
-import javax.servlet.http.HttpServletRequest;
-
-import org.apache.catalina.Session;
+import de.javakaffee.web.msm.MemcachedSessionService.SessionManager;
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.catalina.authenticator.Constants;
 import org.apache.catalina.authenticator.SavedRequest;
 import org.apache.juli.logging.Log;
 import org.apache.juli.logging.LogFactory;
 import org.apache.tomcat.util.buf.ByteChunk;
 
-import de.javakaffee.web.msm.MemcachedSessionService.SessionManager;
+import java.io.*;
+import java.security.Principal;
+import java.util.*;
+import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentMap;
 
-/**
- * This service is responsible for serializing/deserializing session data
- * so that this can be stored in / loaded from memcached.
- *
- * @author <a href="mailto:martin.grotzke@javakaffee.de">Martin Grotzke</a>
- */
 public class TranscoderService {
 
     private static final Log LOG = LogFactory.getLog( TranscoderService.class );
 
+    public static final String LEGACY_PRINCIPAL_NOTE = "legacynote";
     public static final short VERSION_1 = 1;
     public static final short VERSION_2 = 2;
 
@@ -136,17 +98,6 @@ public class TranscoderService {
         }
     }
 
-    /**
-     * Serialize the given session attributes to a byte array, this is delegated
-     * to {@link SessionAttributesTranscoder#serializeAttributes(MemcachedBackupSession, ConcurrentMap)} (using
-     * the {@link SessionAttributesTranscoder} provided in the constructor of this class).
-     *
-     * @param session the session that owns the given attributes.
-     * @param attributes the attributes to serialize.
-     * @return a byte array representing the serialized attributes.
-     *
-     * @see de.javakaffee.web.msm.SessionAttributesTranscoder#serializeAttributes(MemcachedBackupSession, ConcurrentMap)
-     */
     public byte[] serializeAttributes( final MemcachedBackupSession session, final ConcurrentMap<String, Object> attributes ) {
         return _attributesTranscoder.serializeAttributes( session, attributes );
     }
@@ -200,11 +151,11 @@ public class TranscoderService {
         final byte[] savedRequestData = serializeSavedRequest(session.getNote(Constants.FORM_REQUEST_NOTE));
         final int savedRequestDataLength = savedRequestData != null ? savedRequestData.length : 0;
 
-        final byte[] savedPrincipalData = serializePrincipal((Principal) session.getNote(Constants.FORM_PRINCIPAL_NOTE), session.getManager());
+        final byte[] savedPrincipalData = serializePrincipal((Principal) session.getNote(LEGACY_PRINCIPAL_NOTE), session.getManager());
         final int savedPrincipalDataLength = savedPrincipalData != null ? savedPrincipalData.length : 0;
 
         int sessionFieldsDataLength = 2 // short value for the version
-        // the following might change with other versions, refactoring needed then
+                // the following might change with other versions, refactoring needed then
                 + 2 // short value that stores the dataLength
                 + NUM_BYTES // bytes that store all session attributes but the id
                 + 2 // short value that stores the idData length
@@ -296,7 +247,7 @@ public class TranscoderService {
             if ( savedPrincipalDataLength > 0 ) {
                 final byte[] savedPrincipalData = new byte[savedPrincipalDataLength];
                 System.arraycopy( data, currentIdx + 2, savedPrincipalData, 0, savedPrincipalDataLength );
-                result.setNote( Constants.FORM_PRINCIPAL_NOTE, deserializePrincipal( savedPrincipalData, manager ) );
+                result.setNote( LEGACY_PRINCIPAL_NOTE, deserializePrincipal( savedPrincipalData, manager ) );
             }
         }
 
@@ -406,7 +357,7 @@ public class TranscoderService {
     }
 
     @SuppressWarnings("unchecked")
-    private static SavedRequest deserializeSavedRequest( final byte[] data ) {
+    private static SavedRequest deserializeSavedRequest(final byte[] data ) {
         ByteArrayInputStream bis = null;
         ObjectInputStream ois = null;
         try {
@@ -511,8 +462,8 @@ public class TranscoderService {
         for ( int i = 0; i < numBytes; i++ ) {
             final byte b = data[beginIndex + i];
             result = ( result << 8 ) | ( b < 0
-                ? 256 + b
-                : b );
+                    ? 256 + b
+                    : b );
         }
         return result;
     }
@@ -526,8 +477,8 @@ public class TranscoderService {
      */
     private static int encodeBoolean( final boolean b, final byte[] data, final int index ) {
         data[index] = (byte) ( b
-            ? '1'
-            : '0' );
+                ? '1'
+                : '0' );
         return index + 1;
     }
 
@@ -573,10 +524,6 @@ public class TranscoderService {
         }
     }
 
-    /**
-     * The enum representing id/string mappings for the {@link Session#getAuthType()}
-     * with values defined in {@link Constants}.
-     */
     private static enum AuthType {
 
         NONE( (short)0, null ),

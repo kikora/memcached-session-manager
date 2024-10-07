@@ -1,39 +1,13 @@
-/*
- * Copyright 2010 Martin Grotzke
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
 package de.javakaffee.web.msm;
+
+import org.apache.juli.logging.Log;
+import org.apache.juli.logging.LogFactory;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Random;
-import java.util.Set;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
-
-import org.apache.juli.logging.Log;
-import org.apache.juli.logging.LogFactory;
-
-
-/**
- * Provides services related to node ids.
- *
- * @author <a href="mailto:martin.grotzke@javakaffee.de">Martin Grotzke</a>
- */
 public class NodeIdService {
 
     private static final Log LOG = LogFactory.getLog( NodeIdService.class );
@@ -71,14 +45,9 @@ public class NodeIdService {
         _failoverNodeIds = failoverNodeIds;
     }
 
-    /**
-     * A special constructor used for testing of {@link #getRandomNextNodeId(String, Set)}.
-     *
-     * @param nodeIds
-     * @param failoverNodeIds
-     */
+
     NodeIdService( final List<String> nodeIds,
-            final List<String> failoverNodeIds ) {
+                   final List<String> failoverNodeIds ) {
         this( null, new NodeIdList( nodeIds ), failoverNodeIds );
     }
 
@@ -87,7 +56,7 @@ public class NodeIdService {
      * @param nodeId the node to check, not <code>null</code>.
      * @return <code>true</code>, if the node is marked as available
      */
-    public boolean isNodeAvailable( @Nonnull final String nodeId ) {
+    public boolean isNodeAvailable(  final String nodeId ) {
         return _nodeAvailabilityCache.isNodeAvailable( nodeId );
     }
 
@@ -140,8 +109,8 @@ public class NodeIdService {
      *
      * @see NodeIdList#getNextNodeId(String)
      */
-    @CheckForNull
-    public String getNextNodeId( @Nonnull final String nodeId ) throws IllegalArgumentException {
+
+    public String getNextNodeId(  final String nodeId ) throws IllegalArgumentException {
         return _nodeIds.getNextNodeId( nodeId );
     }
 

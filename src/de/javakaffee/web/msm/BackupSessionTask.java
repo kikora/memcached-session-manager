@@ -1,52 +1,16 @@
-/*
- * Copyright 2009 Martin Grotzke
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
 package de.javakaffee.web.msm;
-
-
-import static de.javakaffee.web.msm.MemcachedUtil.toMemcachedExpiration;
-import static de.javakaffee.web.msm.Statistics.StatsType.ATTRIBUTES_SERIALIZATION;
-import static de.javakaffee.web.msm.Statistics.StatsType.BACKUP;
-import static de.javakaffee.web.msm.Statistics.StatsType.MEMCACHED_UPDATE;
-import static de.javakaffee.web.msm.Statistics.StatsType.RELEASE_LOCK;
-
-import java.util.Arrays;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-
-import org.apache.juli.logging.Log;
-import org.apache.juli.logging.LogFactory;
 
 import de.javakaffee.web.msm.BackupSessionTask.BackupResult;
 import de.javakaffee.web.msm.storage.StorageClient;
+import org.apache.juli.logging.Log;
+import org.apache.juli.logging.LogFactory;
 
-/**
- * Stores the provided session in memcached if the session was modified
- * or if the session needs to be relocated (set <code>force</code> to <code>true</code>).
- *
- * @author <a href="mailto:martin.grotzke@javakaffee.de">Martin Grotzke</a>
- */
+import java.util.Arrays;
+import java.util.concurrent.*;
+
+import static de.javakaffee.web.msm.MemcachedUtil.toMemcachedExpiration;
+import static de.javakaffee.web.msm.Statistics.StatsType.*;
+
 public class BackupSessionTask implements Callable<BackupResult> {
 
     private static final Log _log = LogFactory.getLog( BackupSessionTask.class );
@@ -74,13 +38,13 @@ public class BackupSessionTask implements Callable<BackupResult> {
      * @param statistics
      */
     public BackupSessionTask( final MemcachedBackupSession session,
-            final boolean sessionIdChanged,
-            final TranscoderService transcoderService,
-            final boolean sessionBackupAsync,
-            final int sessionBackupTimeout,
-            final StorageClient storage,
-            final MemcachedNodesManager memcachedNodesManager,
-            final Statistics statistics ) {
+                              final boolean sessionIdChanged,
+                              final TranscoderService transcoderService,
+                              final boolean sessionBackupAsync,
+                              final int sessionBackupTimeout,
+                              final StorageClient storage,
+                              final MemcachedNodesManager memcachedNodesManager,
+                              final Statistics statistics ) {
         _session = session;
         _force = sessionIdChanged;
         _transcoderService = transcoderService;
@@ -208,12 +172,12 @@ public class BackupSessionTask implements Callable<BackupResult> {
 
     private void handleException(final MemcachedBackupSession session, final Exception e) {
         //if ( _log.isWarnEnabled() ) {
-            String msg = "Could not store session " + session.getId() + " in memcached.";
-            if ( _force ) {
-                msg += "\nNote that this session was relocated to this node because the" +
+        String msg = "Could not store session " + session.getId() + " in memcached.";
+        if ( _force ) {
+            msg += "\nNote that this session was relocated to this node because the" +
                     " original node was not available.";
-            }
-            _log.warn(msg, e);
+        }
+        _log.warn(msg, e);
         //}
         _memcachedNodesManager.setNodeAvailableForSessionId(session.getId(), false);
     }
@@ -255,10 +219,10 @@ public class BackupSessionTask implements Callable<BackupResult> {
         private final BackupResultStatus _status;
         private final byte[] _data;
         private final byte[] _attributesData;
-        public BackupResult( @Nonnull final BackupResultStatus status ) {
+        public BackupResult(  final BackupResultStatus status ) {
             this( status, null, null );
         }
-        public BackupResult( @Nonnull final BackupResultStatus status, @Nullable final byte[] data, @Nullable final byte[] attributesData ) {
+        public BackupResult(  final BackupResultStatus status,  final byte[] data,  final byte[] attributesData ) {
             _status = status;
             _data = data;
             _attributesData = attributesData;
@@ -267,7 +231,7 @@ public class BackupSessionTask implements Callable<BackupResult> {
          * The status/result of the backup operation.
          * @return the status
          */
-        @Nonnull
+
         BackupResultStatus getStatus() {
             return _status;
         }
@@ -277,7 +241,7 @@ public class BackupSessionTask implements Callable<BackupResult> {
          *
          * @return the session data
          */
-        @CheckForNull
+
         byte[] getData() {
             return _data;
         }
@@ -288,7 +252,7 @@ public class BackupSessionTask implements Callable<BackupResult> {
          *
          * @return the attributesData
          */
-        @CheckForNull
+
         byte[] getAttributesData() {
             return _attributesData;
         }
@@ -301,12 +265,12 @@ public class BackupSessionTask implements Callable<BackupResult> {
         public boolean isSuccess() {
             return _status == BackupResultStatus.SUCCESS;
         }
-		@Override
-		public String toString() {
-			return "BackupResult [_status=" + _status + ", _data="
-					+ (_data != null ? "byte[" + _data.length + "]" : "null") + ", _attributesData="
-					+ (_attributesData != null ? "byte[" + _attributesData.length + "]" : "null") + "]";
-		}
+        @Override
+        public String toString() {
+            return "BackupResult [_status=" + _status + ", _data="
+                    + (_data != null ? "byte[" + _data.length + "]" : "null") + ", _attributesData="
+                    + (_attributesData != null ? "byte[" + _attributesData.length + "]" : "null") + "]";
+        }
     }
 
 }

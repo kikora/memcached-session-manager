@@ -1,54 +1,25 @@
-/*
- * Copyright 2011 Martin Grotzke
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
 package de.javakaffee.web.msm;
-
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-
-import javax.annotation.Nonnull;
-
-import org.apache.catalina.connector.Request;
 
 import de.javakaffee.web.msm.BackupSessionService.SimpleFuture;
 import de.javakaffee.web.msm.BackupSessionTask.BackupResult;
 import de.javakaffee.web.msm.MemcachedSessionService.LockStatus;
 import de.javakaffee.web.msm.storage.StorageClient;
+import org.apache.catalina.connector.Request;
 
-/**
- * This locking strategy locks all requests except those that are registed (via autodetection)
- * to access the session only readonly.
- *
- * @author <a href="mailto:martin.grotzke@javakaffee.de">Martin Grotzke</a>
- */
+import java.util.concurrent.*;
+
 public class LockingStrategyAuto extends LockingStrategy {
 
     private final ExecutorService _requestPatternDetectionExecutor;
     private final ReadOnlyRequestsCache _readOnlyRequestCache;
 
-    public LockingStrategyAuto( @Nonnull final MemcachedSessionService manager,
-            @Nonnull final MemcachedNodesManager memcachedNodesManager,
-            @Nonnull final StorageClient storage,
-            @Nonnull final LRUCache<String, Boolean> missingSessionsCache,
-            final boolean storeSecondaryBackup,
-            @Nonnull final Statistics stats,
-            @Nonnull final CurrentRequest currentRequest ) {
+    public LockingStrategyAuto(  final MemcachedSessionService manager,
+                                 final MemcachedNodesManager memcachedNodesManager,
+                                 final StorageClient storage,
+                                 final LRUCache<String, Boolean> missingSessionsCache,
+                                final boolean storeSecondaryBackup,
+                                 final Statistics stats,
+                                 final CurrentRequest currentRequest ) {
         super( manager, memcachedNodesManager, storage, missingSessionsCache, storeSecondaryBackup, stats, currentRequest );
         _requestPatternDetectionExecutor = Executors.newSingleThreadExecutor(new NamedThreadFactory("msm-req-pattern-detector"));
         _readOnlyRequestCache = new ReadOnlyRequestsCache();
@@ -60,8 +31,8 @@ public class LockingStrategyAuto extends LockingStrategy {
     }
 
     @Override
-    protected void onBackupWithoutLoadedSession( @Nonnull final String sessionId, @Nonnull final String requestId,
-            @Nonnull final BackupSessionService backupSessionService ) {
+    protected void onBackupWithoutLoadedSession(  final String sessionId,  final String requestId,
+                                                  final BackupSessionService backupSessionService ) {
 
         if ( !_sessionIdFormat.isValid( sessionId ) ) {
             return;
@@ -74,9 +45,9 @@ public class LockingStrategyAuto extends LockingStrategy {
 
     @Override
     protected void onAfterBackupSession( final MemcachedBackupSession session, final boolean backupWasForced,
-            final Future<BackupResult> result,
-            final String requestId,
-            final BackupSessionService backupSessionService ) {
+                                         final Future<BackupResult> result,
+                                         final String requestId,
+                                         final BackupSessionService backupSessionService ) {
 
         if ( !_sessionIdFormat.isValid( session.getIdInternal() ) ) {
             return;
@@ -103,7 +74,7 @@ public class LockingStrategyAuto extends LockingStrategy {
         };
         /* A simple future does not need to go through the executor, but we can process the result right now.
          */
-        if ( result instanceof SimpleFuture ) {
+        if ( result instanceof SimpleFuture) {
             try {
                 task.call();
             } catch ( final Exception e ) { /* caught in the callable */ }
@@ -114,7 +85,7 @@ public class LockingStrategyAuto extends LockingStrategy {
     }
 
     @Override
-    protected LockStatus onBeforeLoadFromMemcached( final String sessionId ) throws InterruptedException,
+    protected LockStatus onBeforeLoadFromMemcached(final String sessionId ) throws InterruptedException,
             ExecutionException {
 
         final Request request = _currentRequest.get();

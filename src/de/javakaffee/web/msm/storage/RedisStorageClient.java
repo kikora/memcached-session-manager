@@ -1,19 +1,3 @@
-/*
- * Copyright 2016 Markus Ellinger
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
 package de.javakaffee.web.msm.storage;
 
 import de.javakaffee.web.msm.NamedThreadFactory;
@@ -25,21 +9,15 @@ import redis.clients.jedis.exceptions.JedisConnectionException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Queue;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.*;
 
 import static java.lang.String.format;
 
-/**
- * Storage client backed by a Jedis client instance.
- */
+
 public class RedisStorageClient implements StorageClient {
     protected static final Log _log = LogFactory.getLog(RedisStorageClient.class);
 
-    private final URI _uri;
+    private final   URI _uri;
     private final int _timeout;
     private final JedisPool _pool = new JedisPool();
     private final ExecutorService _executor = Executors.newCachedThreadPool(new NamedThreadFactory("msm-redis-client"));
@@ -53,7 +31,7 @@ public class RedisStorageClient implements StorageClient {
     public RedisStorageClient(String redisUrl, long operationTimeout) {
         if (redisUrl == null)
             throw new NullPointerException("Param \"redisUrl\" may not be null");
-        
+
         if (_log.isDebugEnabled())
             _log.debug(format("Creating RedisStorageClient with URL \"%s\"", redisUrl));
 
@@ -77,13 +55,13 @@ public class RedisStorageClient implements StorageClient {
 
     @Override
     public Future<Boolean> add(final String key, final int exp, final byte[] o) {
-        
+
         if (_log.isDebugEnabled())
             _log.debug(format("Adding key to Redis (key=%s, exp=%s, o=%s)", key, exp, o.getClass().getName()));
-        
+
         return _executor.submit(new RedisCommandCallable<Boolean>() {
             private volatile boolean _setCompleted;
-            
+
             @Override protected Boolean execute(BinaryJedis jedis) throws Exception {
                 byte[] kb = keyBytes(key);
                 if (_setCompleted || jedis.setnx(kb, o) == 1) {
@@ -103,7 +81,7 @@ public class RedisStorageClient implements StorageClient {
     public Future<Boolean> set(final String key, final int exp, final byte[] o) {
         if (_log.isDebugEnabled())
             _log.debug(format("Setting key in Redis (key=%s, exp=%s, o=%s)", key, exp, o.getClass().getName()));
-        
+
         return _executor.submit(new RedisCommandCallable<Boolean>() {
             @Override protected Boolean execute(BinaryJedis jedis) throws Exception {
                 if (exp == 0)
@@ -113,18 +91,18 @@ public class RedisStorageClient implements StorageClient {
             }
         });
     }
-    
+
     @Override
     public byte[] get(final String key) {
         if (_log.isDebugEnabled())
             _log.debug(format("Getting key from Redis (key=%s)", key));
-        
+
         Callable<byte[]> callable = new RedisCommandCallable<byte[]>() {
             @Override protected byte[] execute(BinaryJedis jedis) throws Exception {
                 return jedis.get(keyBytes(key));
             }
         };
-        
+
         // Execute callable synchronously since we need to wait for the result anyway
         try {
             return callable.call();
@@ -136,7 +114,7 @@ public class RedisStorageClient implements StorageClient {
                 throw new RuntimeException("Error getting key from Redis", e);
         }
     }
-    
+
     @Override
     public Future<Boolean> delete(final String key) {
         if (_log.isDebugEnabled())
@@ -153,14 +131,14 @@ public class RedisStorageClient implements StorageClient {
     public void shutdown() {
         _pool.shutdown();
     }
-    
+
     private static int convertExp(int exp) {
         if (exp <= 60*60*24*30) // thirty days
             return exp;
         else
             return Math.max(exp - (int)(System.currentTimeMillis() / 1000), 1);
     }
-    
+
     private static byte[] keyBytes(String key) {
         try {
             return key.getBytes("UTF-8");
@@ -168,7 +146,7 @@ public class RedisStorageClient implements StorageClient {
             throw new IllegalStateException(e);
         }
     }
-    
+
     private abstract class RedisCommandCallable<T> implements Callable<T> {
         @Override
         public T call() throws Exception {
@@ -192,7 +170,7 @@ public class RedisStorageClient implements StorageClient {
                 if (jedis != null)
                     _pool.returnInstance(jedis);
             }
-            
+
             // Try to execute the command again with a known-good instance
             try {
                 jedis = _pool.borrowInstance(true);
@@ -202,7 +180,7 @@ public class RedisStorageClient implements StorageClient {
                     _pool.returnInstance(jedis);
             }
         }
-        
+
         protected abstract T execute(BinaryJedis jedis) throws Exception;
     }
 
@@ -251,14 +229,14 @@ public class RedisStorageClient implements StorageClient {
                 return res;
             }
         }
-        
+
         public void returnInstance(BinaryJedis instance) {
             _queue.offer(instance);
 
             if (_log.isTraceEnabled())
                 _log.trace(format("Returned instance #%d", _queue.size()));
         }
-        
+
         public void shutdown() {
             if (_log.isDebugEnabled())
                 _log.debug(format("Closing %d Jedis instance(s)", _queue.size()));
@@ -268,7 +246,7 @@ public class RedisStorageClient implements StorageClient {
                 try { instance.close(); } catch (Exception e) { /* ignore exception */ }
             }
         }
-        
+
         private BinaryJedis createJedisInstance() {
             BinaryJedis binaryJedis = new BinaryJedis(_uri);
             binaryJedis.getClient().setConnectionTimeout(_timeout);

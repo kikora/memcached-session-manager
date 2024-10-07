@@ -1,58 +1,16 @@
-/*
- * Copyright 2010 Martin Grotzke
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
 package de.javakaffee.web.msm;
-
-
-import static de.javakaffee.web.msm.Statistics.StatsType.ATTRIBUTES_SERIALIZATION;
-import static de.javakaffee.web.msm.Statistics.StatsType.CACHED_DATA_SIZE;
-import static de.javakaffee.web.msm.Statistics.StatsType.LOAD_FROM_MEMCACHED;
-
-import java.io.IOException;
-import java.util.Map;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 import de.javakaffee.web.msm.BackupSessionService.SimpleFuture;
 import de.javakaffee.web.msm.BackupSessionTask.BackupResult;
 import de.javakaffee.web.msm.MemcachedNodesManager.StorageClientCallback;
 import de.javakaffee.web.msm.storage.StorageClient;
 
-/**
- * This {@link MemcachedSessionService} can be used for debugging session
- * <em>deserialization</em> - to see if serialized session data actually can be
- * deserialized. Session data is serialized at the end of the request as normal (stored
- * in a simple map), and deserialized when a following request is asking for the session.
- * The deserialization is done like this (instead of directly at the end of the request
- * when it is serialized) to perform deserialization at the same point in the lifecycle
- * as it would happen in the real failover case (there might be difference in respect
- * to initialized ThreadLocals or other stuff).
- * <p>
- * The memcached configuration (<code>memcachedNodes</code>, <code>failoverNode</code>) is
- * not used to create a memcached client, so serialized session data will <strong>not</strong>
- * be sent to memcached - and therefore no running memcacheds are required. Though, the
- * <code>memcachedNodes</code> attribute is still required (use some dummy values).
- * </p>
- *
- * @author <a href="mailto:martin.grotzke@javakaffee.de">Martin Grotzke</a>
- * @version $Id$
- */
+import java.io.IOException;
+import java.util.Map;
+import java.util.concurrent.*;
+
+import static de.javakaffee.web.msm.Statistics.StatsType.*;
+
 public class DummyMemcachedSessionService<T extends MemcachedSessionService.SessionManager> extends MemcachedSessionService {
 
     private final Map<String,byte[]> _sessionData = new ConcurrentHashMap<String, byte[]>();
@@ -70,12 +28,12 @@ public class DummyMemcachedSessionService<T extends MemcachedSessionService.Sess
 
     @Override
     protected StorageClientCallback createStorageClientCallback() {
-    	return new StorageClientCallback() {
-			@Override
-			public byte[] get(final String key) {
-				return null;
-			}
-		};
+        return new StorageClientCallback() {
+            @Override
+            public byte[] get(final String key) {
+                return null;
+            }
+        };
     }
 
     @Override
@@ -83,27 +41,17 @@ public class DummyMemcachedSessionService<T extends MemcachedSessionService.Sess
         // no memcached access
     }
 
-    /**
-     * Store the provided session in memcached if the session was modified
-     * or if the session needs to be relocated.
-     *
-     * @param session
-     *            the session to save
-     * @param sessionRelocationRequired
-     *            specifies, if the session id was changed due to a memcached failover or tomcat failover.
-     * @return the {@link BackupResultStatus}
-     */
-    public Future<BackupResult> backupSession( final String sessionId, final boolean sessionIdChanged, final String requestId ) {
+    public Future<BackupResult> backupSession(final String sessionId, final boolean sessionIdChanged, final String requestId ) {
 
         final MemcachedBackupSession session = _manager.getSessionInternal( sessionId );
-        
+
         if ( session == null ) {
             if(_log.isDebugEnabled())
                 _log.debug( "No session found in session map for " + sessionId );
-          
+
             return new SimpleFuture<BackupResult>( BackupResult.SKIPPED );
         }
-        
+
         _log.info( "Serializing session data for session " + session.getIdInternal() );
         final long startSerialization = System.currentTimeMillis();
         final byte[] data = _transcoderService.serializeAttributes( (MemcachedBackupSession) session, ((MemcachedBackupSession) session).getAttributesFiltered() );

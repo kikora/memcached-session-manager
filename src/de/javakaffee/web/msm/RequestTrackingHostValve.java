@@ -1,32 +1,7 @@
-/*
- * Copyright 2009 Martin Grotzke
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
 package de.javakaffee.web.msm;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.regex.Pattern;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import javax.servlet.ServletException;
-import javax.servlet.http.Cookie;
-
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import org.apache.catalina.Context;
 import org.apache.catalina.connector.Request;
 import org.apache.catalina.connector.Response;
@@ -34,14 +9,12 @@ import org.apache.catalina.valves.ValveBase;
 import org.apache.juli.logging.Log;
 import org.apache.juli.logging.LogFactory;
 
-/**
- * This valve is used for tracking requests for that the session must be sent to
- * memcached, on host level. This encapsulates/surrounds als container request
- * processing like e.g. authentication and ServletRequestListener notification.
- *
- * @author <a href="mailto:martin.grotzke@javakaffee.de">Martin Grotzke</a>
- * @version $Id$
- */
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
+
 public abstract class RequestTrackingHostValve extends ValveBase {
 
     private static final String REQUEST_IGNORED = "de.javakaffee.msm.request.ignored";
@@ -66,27 +39,11 @@ public abstract class RequestTrackingHostValve extends ValveBase {
 
     private static final String MSM_REQUEST_ID = "msm.requestId";
 
-    /**
-     * Creates a new instance with the given ignore pattern and
-     * {@link SessionBackupService}.
-     *
-     * @param ignorePattern
-     *            the regular expression for request uris to ignore
-     * @param context
-     *            the catalina context of this valve
-     * @param sessionBackupService
-     *            the service that actually backups sessions
-     * @param statistics
-     *            used to store statistics
-     * @param enabled
-     *            specifies if memcached-session-manager is enabled or not.
-     *            If <code>false</code>, each request is just processed without doing anything further.
-     */
-    public RequestTrackingHostValve( @Nullable final String ignorePattern, @Nonnull final String sessionCookieName,
-            @Nonnull final MemcachedSessionService sessionBackupService,
-            @Nonnull final Statistics statistics,
-            @Nonnull final AtomicBoolean enabled,
-            @Nonnull final CurrentRequest currentRequest) {
+    public RequestTrackingHostValve(  final String ignorePattern,  final String sessionCookieName,
+                                      final MemcachedSessionService sessionBackupService,
+                                      final Statistics statistics,
+                                      final AtomicBoolean enabled,
+                                      final CurrentRequest currentRequest) {
         if ( ignorePattern != null ) {
             _log.info( "Setting ignorePattern to " + ignorePattern );
             _ignorePattern = Pattern.compile( ignorePattern );
@@ -176,7 +133,7 @@ public abstract class RequestTrackingHostValve extends ValveBase {
         if ( cookies == null ) {
             return;
         }
-        for( final javax.servlet.http.Cookie cookie : cookies ) {
+        for( final Cookie cookie : cookies ) {
             if ( cookie.getName().equals( _sessionCookieName ) ) {
                 _log.debug( "Have request session cookie: domain=" + cookie.getDomain() + ", maxAge=" + cookie.getMaxAge() +
                         ", path=" + cookie.getPath() + ", value=" + cookie.getValue() +
@@ -185,8 +142,8 @@ public abstract class RequestTrackingHostValve extends ValveBase {
         }
     }
 
-    @Nonnull
-    protected static String getURIWithQueryString( @Nonnull final Request request ) {
+
+    protected static String getURIWithQueryString( final Request request ) {
         final Object note = request.getNote(MSM_REQUEST_ID);
         if(note != null) {
             // we have a string and want to save cast
@@ -194,8 +151,8 @@ public abstract class RequestTrackingHostValve extends ValveBase {
         }
         final StringBuilder sb = new StringBuilder(30);
         sb.append(request.getMethod())
-        .append(' ')
-        .append(request.getRequestURI());
+                .append(' ')
+                .append(request.getRequestURI());
         if(!isPostMethod(request) && request.getQueryString() != null) {
             sb.append('?').append(request.getQueryString());
         }
@@ -204,20 +161,20 @@ public abstract class RequestTrackingHostValve extends ValveBase {
         return result;
     }
 
-	protected static boolean isPostMethod(final Request request) {
-		final String method = request.getMethod();
-		if ( method == null && _log.isDebugEnabled() ) {
-			_log.debug("No method set for request " + request.getRequestURI() +
-					(request.getQueryString() != null ? "?" + request.getQueryString() : ""));
-		}
-		return method != null ? method.toLowerCase().equals( "post" ) : false;
-	}
+    protected static boolean isPostMethod(final Request request) {
+        final String method = request.getMethod();
+        if ( method == null && _log.isDebugEnabled() ) {
+            _log.debug("No method set for request " + request.getRequestURI() +
+                    (request.getQueryString() != null ? "?" + request.getQueryString() : ""));
+        }
+        return method != null ? method.toLowerCase().equals( "post" ) : false;
+    }
 
-	void resetRequestThreadLocal() {
+    void resetRequestThreadLocal() {
         _currentRequest.reset();
     }
 
-    void storeRequestThreadLocal( @Nonnull final Request request ) {
+    void storeRequestThreadLocal(  final Request request ) {
         _currentRequest.set( request );
     }
 

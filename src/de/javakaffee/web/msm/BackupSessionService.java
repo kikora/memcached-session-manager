@@ -1,52 +1,17 @@
-/*
- * Copyright 2009 Martin Grotzke
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
 package de.javakaffee.web.msm;
+
+import de.javakaffee.web.msm.BackupSessionTask.BackupResult;
+import de.javakaffee.web.msm.storage.StorageClient;
+import org.apache.juli.logging.Log;
+import org.apache.juli.logging.LogFactory;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.*;
 
 import static de.javakaffee.web.msm.Statistics.StatsType.EFFECTIVE_BACKUP;
 import static de.javakaffee.web.msm.Statistics.StatsType.RELEASE_LOCK;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.concurrent.AbstractExecutorService;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-
-import javax.annotation.Nonnull;
-
-import org.apache.catalina.Session;
-import org.apache.juli.logging.Log;
-import org.apache.juli.logging.LogFactory;
-
-import de.javakaffee.web.msm.BackupSessionTask.BackupResult;
-import de.javakaffee.web.msm.storage.StorageClient;
-
-/**
- * This service is responsible for storing sessions memcached. This includes
- * serialization (which is delegated to the {@link TranscoderService}) and
- * the communication with memcached (using a provided {@link StorageClient}).
- *
- * @author <a href="mailto:martin.grotzke@javakaffee.de">Martin Grotzke</a>
- */
 public class BackupSessionService {
 
     private static final Log _log = LogFactory.getLog( BackupSessionService.class );
@@ -67,15 +32,14 @@ public class BackupSessionService {
      * @param backupThreadCount TODO
      * @param storage
      * @param memcachedNodesManager
-     * @param failoverNodeIds
      */
     public BackupSessionService( final TranscoderService transcoderService,
-            final boolean sessionBackupAsync,
-            final int sessionBackupTimeout,
-            final int backupThreadCount,
-            final StorageClient storage,
-            final MemcachedNodesManager memcachedNodesManager,
-            final Statistics statistics ) {
+                                 final boolean sessionBackupAsync,
+                                 final int sessionBackupTimeout,
+                                 final int backupThreadCount,
+                                 final StorageClient storage,
+                                 final MemcachedNodesManager memcachedNodesManager,
+                                 final Statistics statistics ) {
         _transcoderService = transcoderService;
         _sessionBackupAsync = sessionBackupAsync;
         _sessionBackupTimeout = sessionBackupTimeout;
@@ -84,8 +48,8 @@ public class BackupSessionService {
         _statistics = statistics;
 
         _executorService = sessionBackupAsync
-            ? Executors.newFixedThreadPool( backupThreadCount, new NamedThreadFactory("msm-storage") )
-            : new SynchronousExecutorService();
+                ? Executors.newFixedThreadPool( backupThreadCount, new NamedThreadFactory("msm-storage") )
+                : new SynchronousExecutorService();
 
     }
 
@@ -96,24 +60,7 @@ public class BackupSessionService {
         _executorService.shutdown();
     }
 
-    /**
-     * Update the expiration for the session associated with this {@link BackupSessionService}
-     * in memcached, so that the session will expire in
-     * <em>session.maxInactiveInterval - timeIdle</em>
-     * seconds in memcached (whereas timeIdle is calculated as
-     * <em>System.currentTimeMillis - session.thisAccessedTime</em>).
-     * <p>
-     * <strong>IMPLEMENTATION NOTE</strong>: right now this performs a new backup of the session
-     * in memcached. Once the touch command is available in memcached
-     * (see <a href="http://code.google.com/p/memcached/issues/detail?id=110">issue #110</a> in memcached),
-     * we can consider to use this.
-     * </p>
-     *
-     * @param session the session for that the expiration shall be updated in memcached.
-     *
-     * @see Session#getMaxInactiveInterval()
-     * @see MemcachedBackupSession#getThisAccessedTimeInternal()
-     */
+
     public void updateExpiration( final MemcachedBackupSession session ) throws InterruptedException {
         if ( _log.isDebugEnabled() ) {
             _log.debug( "Updating expiration time for session " + session.getId() );
@@ -162,7 +109,7 @@ public class BackupSessionService {
      * @see MemcachedSessionService#setSessionBackupAsync(boolean)
      * @see BackupSessionTask#call()
      */
-    public Future<BackupResult> backupSession( final MemcachedBackupSession session, final boolean force ) {
+    public Future<BackupResult> backupSession(final MemcachedBackupSession session, final boolean force ) {
         if ( _log.isDebugEnabled() ) {
             _log.debug( "Starting for session id " + session.getId() );
         }
@@ -232,7 +179,7 @@ public class BackupSessionService {
                 _statistics );
     }
 
-    private void releaseLock( @Nonnull final MemcachedBackupSession session ) {
+    private void releaseLock(  final MemcachedBackupSession session ) {
         if ( session.isLocked()  ) {
             try {
                 if ( _log.isDebugEnabled() ) {
@@ -273,7 +220,7 @@ public class BackupSessionService {
          * {@inheritDoc}
          */
         @Override
-        public <T> List<Future<T>> invokeAll( final Collection<? extends Callable<T>> tasks ) throws InterruptedException {
+        public <T> List<Future<T>> invokeAll(final Collection<? extends Callable<T>> tasks ) throws InterruptedException {
             throw new UnsupportedOperationException();
         }
 
@@ -282,7 +229,7 @@ public class BackupSessionService {
          */
         @Override
         public <T> List<Future<T>> invokeAll( final Collection<? extends Callable<T>> tasks, final long timeout, final TimeUnit unit )
-            throws InterruptedException {
+                throws InterruptedException {
             throw new UnsupportedOperationException();
         }
 
@@ -299,7 +246,7 @@ public class BackupSessionService {
          */
         @Override
         public <T> T invokeAny( final Collection<? extends Callable<T>> tasks, final long timeout, final TimeUnit unit ) throws InterruptedException,
-            ExecutionException, TimeoutException {
+                ExecutionException, TimeoutException {
             throw new UnsupportedOperationException();
         }
 
