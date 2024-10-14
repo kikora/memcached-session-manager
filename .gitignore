@@ -14,3 +14,9 @@ jbossweb3/
 .idea
 *.log
 
+/gradlew
+/gradlew.bat
+/build/
+/.gradle/
+/gradle/
+.DS_Store

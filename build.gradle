@@ -1,5 +1,5 @@
 plugins {
-    id 'java'
+    id 'java-library'
     id 'maven-publish'
 }
 
@@ -8,8 +8,8 @@ repositories {
         maven {
             url = uri("https://maven.pkg.github.com/kikora/java-saml")
             credentials {
-                username = (project.findProperty("gpr.user") ?: System.getenv("USERNAME")) as String
-                password = (project.findProperty("gpr.key") ?: System.getenv("TOKEN")) as String
+                //username = (project.findProperty("gpr.user") ?: System.getenv("USERNAME")) as String
+               //password = (project.findProperty("gpr.key") ?: System.getenv("TOKEN")) as String
             }
         }
 }
@@ -58,6 +58,9 @@ java{
 
 
 publishing {
+    logger.info('Username: ' + project.findProperty("gpr.user") ?: System.getenv("USERNAME"))
+    logger.info('Token: ' + project.findProperty("gpr.key") ?: System.getenv("TOKEN"))
+
     repositories {
         maven {
             name = "GitHubPackages"
@@ -69,13 +72,16 @@ publishing {
         }
     }
     publications {
-        gpr(MavenPublication) {
-            from(components.java)
+        maven(MavenPublication) {
+	  groupId 'kikora'
+          artifactId 'memcached-session-manager'
+          version '0.1.1'
+          from(components.java)
         }
     }
 }
 
-jar {
-    archiveBaseName = 'kikora-memcached-session-manager-tc'
-    archiveVersion =  '0.1.0'
-}
+//jar {
+//    archiveBaseName = 'kikora-memcached-session-manager-tc'
+//    archiveVersion =  '0.1.0'
+//}
